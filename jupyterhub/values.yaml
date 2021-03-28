@@ -64,7 +64,7 @@ hub:
     ##   deployment of JupyterHub on k8s is to be possible.
     type: Recreate
   db:
-    type: sqlite-pvc
+    type: sqlite-memory
     upgrade:
     pvc:
       annotations: {}
@@ -145,7 +145,7 @@ hub:
   existingSecret:
 
 rbac:
-  enabled: false
+  enabled: true
 
 # proxy relates to the proxy pod, the proxy-public service, and the autohttps
 # pod and proxy-http service.
@@ -317,7 +317,7 @@ singleuser:
   networkTools:
     image:
       name: jupyterhub/k8s-network-tools
-      tag: "set-by-chartpress"
+      tag: "0.11.1-n346.h03aaf174"
       pullPolicy:
       pullSecrets: []
   cloudMetadata:
@@ -355,7 +355,7 @@ singleuser:
   fsGid: 100
   serviceAccountName:
   storage:
-    type: dynamic
+    type: none
     extraLabels: {}
     extraVolumes: []
     extraVolumeMounts: []
@@ -371,7 +371,7 @@ singleuser:
       storageAccessModes: [ReadWriteOnce]
   image:
     name: jupyterhub/k8s-singleuser-sample
-    tag: "set-by-chartpress"
+    tag: "0.11.1"
     pullPolicy:
     pullSecrets: []
   startTimeout: 300
