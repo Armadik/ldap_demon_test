@@ -29,6 +29,8 @@ hub:
   config:
     JupyterHub:
       admin_access: true
+      admin_users:
+        - wzh
       authenticator_class: ldapauthenticator.LDAPAuthenticator
     LDAPAuthenticator:
       lookup_dn: true
@@ -49,7 +51,7 @@ hub:
   baseUrl: /
   cookieSecret:
   initContainers: []
-  fsGid: 1000
+  #fsGid: 1000
   nodeSelector: {}
   tolerations: []
   concurrentSpawnLimit: 64
@@ -80,7 +82,21 @@ hub:
   annotations: {}
   command: []
   args: []
-  extraConfig: {}
+  extraConfig:
+    myConfig.py: |
+      c.JupyterHub.something = 'something'
+      c.KubeSpawner.singleuser_uid = 1999
+      c.KubeSpawner.singleuser_fs_gid = 199
+      c.KubeSpawner.init_containers = [{
+          "name": "init-iptables",
+          "image": "<image with iptables installed>",
+          "command": ["iptables", "-A", "OUTPUT", "-p", "tcp", "--dport", "80", "-d", "169.254.169.254", "-j", "DROP"],
+          "securityContext": {
+              "capabilities": {
+                  "add": ["test-NET_ADMIN"]
+              }
+          }
+      }]
   extraConfigMap: {}
   extraFiles: {}
   extraEnv: {}
@@ -347,12 +363,14 @@ singleuser:
   extraLabels:
     hub.jupyter.org/network-access-hub: "true"
   extraFiles: {}
-  extraEnv: {}
+  extraEnv:
+    # basic notation (for literal values only)
+    MY_ENV_VARS_NAME1: "my env var value 1"
   lifecycleHooks: {}
   initContainers: []
   extraContainers: []
-  uid: 1000
-  fsGid: 100
+  uid:
+  fsGid:
   serviceAccountName:
   storage:
     type: none
@@ -387,7 +405,16 @@ singleuser:
   cmd: jupyterhub-singleuser
   defaultUrl:
   extraPodConfig: {}
-  profileList: []
+  profileList:
+    - display_name: "GPU Server"
+      description: "Spawns a notebook server with access to a GPU"
+      kubespawner_override:
+        extra_resource_limits:
+          nvidia.com/gpu: "1"
+    - display_name: "Default: Shared, 8 CPU cores"
+      description: "Your code will run on a shared machine with CPU only."
+      default: True
+
 
 # scheduling relates to the user-scheduler pods and user-placeholder pods.
 scheduling:
