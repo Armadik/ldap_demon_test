@@ -89,11 +89,11 @@ hub:
       c.KubeSpawner.singleuser_fs_gid = 199
       c.KubeSpawner.init_containers = [{
           "name": "init-iptables",
-          "image": "<image with iptables installed>",
+          "image": "jupyterhub/k8s-network-tools:0.11.1-n346.h03aaf174",
           "command": ["iptables", "-A", "OUTPUT", "-p", "tcp", "--dport", "80", "-d", "169.254.169.254", "-j", "DROP"],
           "securityContext": {
               "capabilities": {
-                  "add": ["test-NET_ADMIN"]
+                  "add": ["NET_ADMIN"]
               }
           }
       }]
@@ -381,7 +381,7 @@ singleuser:
       pvcName:
       subPath: "{username}"
     capacity: 10Gi
-    homeMountPath: /home/jovyan
+    homeMountPath: /home/
     dynamic:
       storageClass:
       pvcNameTemplate: claim-{username}{servername}
