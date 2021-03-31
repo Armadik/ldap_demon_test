@@ -76,8 +76,9 @@ spec:
               name: config
             - mountPath: /usr/local/etc/jupyterhub/config/
               name: config
-            - mountPath: /etc/jupyterhub/cert/
+            - mountPath: /etc/jupyterhub/cert/test123
               name: secret
+              subPath: test123
             - mountPath: /usr/local/etc/jupyterhub/secret/
               name: secret
             {{- if (include "jupyterhub.hub-existing-secret.fullname" .) }}

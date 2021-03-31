@@ -29,19 +29,7 @@ hub:
   config:
     JupyterHub:
       admin_access: true
-      admin_users:
-        - wzh
-      authenticator_class: ldapauthenticator.LDAPAuthenticator
-    LDAPAuthenticator:
-      lookup_dn: true
-      lookup_dn_search_password: admin
-      lookup_dn_search_user: 'cn=admin,dc=example,dc=org'
-      user_search_base: 'ou=Users,DC=example,DC=org'
-      server_address: 'ldap://openldap:389'
-      use_ssl:  True
-      lookup_dn_search_filter: '({login_attr}={login})'
-      user_attribute: 'cn'
-      lookup_dn_user_dn_attribute: 'CN'
+      authenticator_class: dummy
   service:
     type: ClusterIP
     annotations: {}
@@ -66,7 +54,6 @@ hub:
     ##   deployment of JupyterHub on k8s is to be possible.
     type: Recreate
   db:
-    #type: sqlite-memory без pvc
     type: sqlite-pvc
     upgrade:
     pvc:
@@ -83,21 +70,7 @@ hub:
   annotations: {}
   command: []
   args: []
-  extraConfig:
-    myConfig.py: |
-      c.JupyterHub.something = 'something'
-      #c.KubeSpawner.singleuser_uid = 1999
-      #c.KubeSpawner.singleuser_fs_gid = 199
-      #c.KubeSpawner.init_containers = [{
-          #"name": "init-iptables",
-          #"image": "jupyterhub/k8s-network-tools:0.11.1-n346.h03aaf174",
-          #"command": ["iptables", "-A", "OUTPUT", "-p", "tcp", "--dport", "80", "-d", "169.254.169.254", "-j", "DROP"],
-          #"securityContext": {
-          #    "capabilities": {
-          #        "add": ["NET_ADMIN"]
-          #    }
-          #}
-      #}]
+  extraConfig: {}
   extraConfigMap: {}
   extraFiles: {}
   extraEnv: {}
@@ -106,7 +79,7 @@ hub:
   extraVolumeMounts: []
   image:
     name: jupyterhub/k8s-hub
-    tag: "0.11.1-n344.hf8be5fa7"
+    tag: "set-by-chartpress"
     pullPolicy:
     pullSecrets: []
   resources: {}
@@ -120,7 +93,7 @@ hub:
     maxUnavailable:
     minAvailable: 1
   networkPolicy:
-    enabled: false
+    enabled: true
     ingress: []
     ## egress for JupyterHub already includes Kubernetes internal DNS and
     ## access to the proxy, but can be restricted further, but ensure to allow
@@ -144,7 +117,7 @@ hub:
   livenessProbe:
     # The livenessProbe's aim to give JupyterHub sufficient time to startup but
     # be able to restart if it becomes unresponsive for ~5 min.
-    enabled: false
+    enabled: true
     initialDelaySeconds: 300
     periodSeconds: 10
     failureThreshold: 30
@@ -154,7 +127,7 @@ hub:
     # but following that never become unready before its livenessProbe fail and
     # restarts it if needed. To become unready following startup serves no
     # purpose as there are no other pod to fallback to in our non-HA deployment.
-    enabled: false
+    enabled: true
     initialDelaySeconds: 0
     periodSeconds: 2
     failureThreshold: 1000
@@ -221,11 +194,11 @@ proxy:
       pullSecrets: []
     extraCommandLineFlags: []
     livenessProbe:
-      enabled: false
+      enabled: true
       initialDelaySeconds: 60
       periodSeconds: 10
     readinessProbe:
-      enabled: false
+      enabled: true
       initialDelaySeconds: 0
       periodSeconds: 2
       failureThreshold: 1000
@@ -236,7 +209,7 @@ proxy:
     nodeSelector: {}
     tolerations: []
     networkPolicy:
-      enabled: false
+      enabled: true
       ingress: []
       egress:
         - to:
@@ -275,7 +248,7 @@ proxy:
     tolerations: []
     extraPorts: []
     networkPolicy:
-      enabled: false
+      enabled: true
       ingress: []
       egress:
         - to:
@@ -334,7 +307,7 @@ singleuser:
   networkTools:
     image:
       name: jupyterhub/k8s-network-tools
-      tag: "0.11.1-n346.h03aaf174"
+      tag: "set-by-chartpress"
       pullPolicy:
       pullSecrets: []
   cloudMetadata:
@@ -343,7 +316,7 @@ singleuser:
     blockWithIptables: true
     ip: 169.254.169.254
   networkPolicy:
-    enabled: false
+    enabled: true
     ingress: []
     egress:
       # Required egress to communicate with the hub and DNS servers will be
@@ -364,9 +337,7 @@ singleuser:
   extraLabels:
     hub.jupyter.org/network-access-hub: "true"
   extraFiles: {}
-  extraEnv:
-    # basic notation (for literal values only)
-    MY_ENV_VARS_NAME1: "my env var value 1"
+  extraEnv: {}
   lifecycleHooks: {}
   initContainers: []
   extraContainers: []
@@ -374,13 +345,12 @@ singleuser:
   fsGid: 100
   serviceAccountName:
   storage:
-    #type: none без pvc
-    type: static
+    type: dynamic
     extraLabels: {}
     extraVolumes: []
     extraVolumeMounts: []
     static:
-      pvcName: hub-db-dir
+      pvcName:
       subPath: "{username}"
     capacity: 10Gi
     homeMountPath: /home/jovyan
@@ -391,7 +361,7 @@ singleuser:
       storageAccessModes: [ReadWriteOnce]
   image:
     name: jupyterhub/k8s-singleuser-sample
-    tag: "0.11.1"
+    tag: "set-by-chartpress"
     pullPolicy:
     pullSecrets: []
   startTimeout: 300
@@ -407,21 +377,12 @@ singleuser:
   cmd: jupyterhub-singleuser
   defaultUrl:
   extraPodConfig: {}
-  profileList:
-    - display_name: "GPU Server"
-      description: "Spawns a notebook server with access to a GPU"
-      kubespawner_override:
-        extra_resource_limits:
-          nvidia.com/gpu: "1"
-    - display_name: "Default: Shared, 8 CPU cores"
-      description: "Your code will run on a shared machine with CPU only."
-      default: True
-
+  profileList: []
 
 # scheduling relates to the user-scheduler pods and user-placeholder pods.
 scheduling:
   userScheduler:
-    enabled: false
+    enabled: true
     replicas: 2
     logLevel: 4
     # plugins ref: https://kubernetes.io/docs/reference/scheduling/config/#scheduling-plugins-1
@@ -465,7 +426,7 @@ scheduling:
     nodeSelector: {}
     tolerations: []
     pdb:
-      enabled: false
+      enabled: true
       maxUnavailable: 1
       minAvailable:
     resources: {}
@@ -475,7 +436,7 @@ scheduling:
     defaultPriority: 0
     userPlaceholderPriority: -10
   userPlaceholder:
-    enabled: false
+    enabled: true
     replicas: 0
     containerSecurityContext:
       runAsUser: 65534 # nobody user
@@ -518,7 +479,7 @@ prePuller:
   extraTolerations: []
   # hook relates to the hook-image-awaiter Job and hook-image-puller DaemonSet
   hook:
-    enabled: false
+    enabled: true
     pullOnlyOnChanges: false
     # image and the configuration below relates to the hook-image-awaiter Job
     image:
@@ -535,7 +496,7 @@ prePuller:
     tolerations: []
     resources: {}
   continuous:
-    enabled: false
+    enabled: true
   pullProfileListImages: true
   extraImages: {}
   pause:
@@ -557,7 +518,7 @@ ingress:
   tls: []
 
 cull:
-  enabled: false
+  enabled: true
   users: false
   removeNamedServers: false
   timeout: 3600
@@ -566,7 +527,7 @@ cull:
   maxAge: 0
 
 debug:
-  enabled: true
+  enabled: false
 
 global:
   safeToShowValues: false
