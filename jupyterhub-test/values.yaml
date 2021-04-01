@@ -1,6 +1,6 @@
 # fullnameOverride and nameOverride distinguishes blank strings, null values,
 # and non-blank strings. For more details, see the configuration reference.
-fullnameOverride: "testjh"
+fullnameOverride: ""
 nameOverride:
 
 # custom can contain anything you want to pass to the hub pod, as all passed
@@ -104,8 +104,8 @@ hub:
   extraVolumes: []
   extraVolumeMounts: []
   image:
-    name: jupyterhub/k8s-hub
-    tag: "0.11.1-n344.hf8be5fa7"
+    name: jupyterhub/jupyterhub
+    tag: "latest"
     pullPolicy:
     pullSecrets: []
   resources: {}
