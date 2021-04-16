@@ -1,0 +1,248 @@
+hub:
+  service:
+    type: ClusterIP
+    annotations: {}
+    ports:
+      nodePort:
+    loadBalancerIP:
+  baseUrl: /
+  cookieSecret:
+  publicURL:
+  uid: 1000
+  fsGid: 1000
+  nodeSelector: {}
+  concurrentSpawnLimit: 64
+  consecutiveFailureLimit: 5
+  activeServerLimit:
+  deploymentStrategy:
+    # sqlite-pvc backed hub requires Recreate strategy to work
+    type: Recreate
+    # This is required for upgrading to work
+    rollingUpdate:
+  db:
+    type: sqlite-pvc
+    upgrade:
+    pvc:
+      annotations: {}
+      selector: {}
+      accessModes:
+        - ReadWriteOnce
+      storage: 1Gi
+      subPath:
+      storageClassName:
+    url:
+    password:
+  labels: {}
+  annotations: {}
+  extraConfig:
+    00-auth-config: |
+      import os
+      import socket
+      import subprocess
+      import requests
+      import json
+      import logging
+      from jupyterhub.spawner import Spawner
+      logger = logging.getLogger()
+      logger.setLevel(logging.DEBUG)
+      c.JupyterHub.spawner_class = 'kubespawner.KubeSpawner'
+      c.JupyterHub.cleanup_servers = False
+      c.JupyterHub.authenticator_class = 'ldapauthenticator.LDAPAuthenticator'
+      c.LDAPAuthenticator.server_address = 'ldaps://10.25.1.6:636'
+      c.LDAPAuthenticator.bind_dn_template = [
+        'cn={username},ou=IMA16,ou=IMA,OU=Studenten,OU=Benutzer,OU=Graz,OU=Technikum,dc=technikum,dc=fh-joanneum,dc=local',
+        'cn={username},ou=IMA18,ou=IMA,OU=Studenten,OU=Benutzer,OU=Graz,OU=Technikum,dc=technikum,dc=fh-joanneum,dc=local',
+        'cn={username},ou=AIM19,ou=AIM,OU=Studenten,OU=Benutzer,OU=Graz,OU=Technikum,dc=technikum,dc=fh-joanneum,dc=local',
+        'cn={username},ou=IMA,OU=Personal,OU=Benutzer,OU=Graz,OU=Technikum,dc=technikum,dc=fh-joanneum,dc=local',
+        'cn={username},ou=GEB,OU=Personal,OU=Benutzer,OU=Graz,OU=Technikum,dc=technikum,dc=fh-joanneum,dc=local',
+        'CN=kuberhub,CN=Users,DC=technikum,DC=fh-joanneum,DC=local'
+      ]
+      c.LDAPAuthenticator.user_search_base = 'ou=technikum,dc=technikum,dc=fh-joanneum,dc=local'
+      c.LDAPAuthenticator.user_attribute = 'sAMAccountName'
+      c.LDAPAuthenticator.escape_userdn = False
+    01-set-config: |
+      c.KubeSpawner.environment = {'GRANT_SUDO': 'True'}
+      def parseUserDN(userDN):
+        parts = userDN.split(',')
+        value = lambda kv: kv.split('=')[1]
+        user = {
+          'username': value(parts[0]),
+          'programme': value(parts[1]),
+          'type': value(parts[-7]),
+          'campus': value(parts[-5])
+        }
+        try:
+          url = f"http://hub-info/Accounts_{user['programme']}.json"
+          userInfo = requests.get(url=url).json()
+          user['group'] = list(filter(lambda u: u['username'] == user['username'], userInfo))[0]['group']
+        except Exception:
+          user['group'] = 0
+        return user
+      def setConfig(parseUser):
+        def execute(spawner):
+          username = spawner.user.name
+          userdn = os.environ.get(username)
+          user = parseUser(userdn)
+          logger.info('USERNAME:', username)
+          logger.info('User info')
+          logger.info(user)
+          path_ima = '/tmp/exchange/ima/nbgrader_config.py'
+          path_dat = '/tmp/exchange/dat/nbgrader_config.py'
+          if(user['type'] == 'Personal' and user['programme'] == 'IMA'):
+              spawner.environment = {
+                  'NB_UID' : '2000',
+                  'TEACHER_GID' : '200',
+                  'CONFIGPATH': f"/tmp/exchange/{user['programme']}/teacher/nbgrader_config.py"
+              }
+          elif(user['type'] == 'Studenten'):
+               spawner.environment = {
+                  'NB_UID': '2001',
+                  'NB_GID': '201',
+                  'CONFIGPATH': f"/tmp/exchange/{user['programme']}-grp{user['group']}/nbgrader_config.py"
+          }
+        return execute
+    02-profiles: |
+      profiles = {
+        'golang_teacher':  {
+              'display_name': 'Golang (Teacher)',
+              'default': False,
+              'kubespawner_override': {
+                'image': 'fhjima/golang:latest',
+                'cmd': ['/usr/local/bin/start-notebook.sh'],
+                'cpu_guarantee': 0.5,
+                'cpu_limit': 1.5,
+                'mem_guarantee': '1G',
+                'mem_limit': '3G',
+                'uid':0,
+                'notebook_dir':'/home/jovyan/work'
+              }
+            },
+        'datascience_teacher':  {
+              'display_name': 'Datascience (Teacher)',
+              'default': False,
+              'kubespawner_override': {
+                'image': 'fhjima/datascience_teacher:latest',
+                'cmd': ['/usr/local/bin/start-notebook.sh'],
+                'cpu_guarantee': 0.5,
+                'cpu_limit': 1.5,
+                'mem_guarantee': '1G',
+                'mem_limit': '3G',
+                'uid':0,
+                'notebook_dir':'/home/jovyan/work'
+              }
+            },
+        'javascript_teacher':  {
+              'display_name': 'Javascript (Teacher)',
+              'default': False,
+              'kubespawner_override': {
+                'image': 'fhjima/javascript-teacher-notebook:latest',
+                'cmd': ['/usr/local/bin/start-notebook.sh'],
+                'cpu_guarantee': 0.5,
+                'cpu_limit': 2.5,
+                'mem_guarantee': '1G',
+                'mem_limit': '1.5G',
+                'uid':0,
+                'notebook_dir':'/home/jovyan/work'
+              }
+            },
+        'javascript_student':  {
+              'display_name': 'Javascript',
+              'default': False,
+              'kubespawner_override': {
+                'image': 'fhjima/javascript-student-notebook:latest',
+                'cmd': ['/usr/local/bin/start-notebook.sh'],
+                'cpu_guarantee': 0.5,
+                'cpu_limit': 2.5,
+                'mem_guarantee': '1G',
+                'mem_limit': '1.5G',
+                'uid':0,
+                'notebook_dir':'/home/jovyan/work'
+              }
+            },
+        'info2_student': {
+              'display_name': 'IMA/INFO2 (Student)',
+              'default': True,
+              'kubespawner_override': {
+                'image': 'skogelnik/kuberhub-student-image:latest',
+                'cpu_guarantee': 0.5,
+                'cpu_limit': 1.5,
+                'mem_guarantee': '1G',
+                'mem_limit': '2.8G',
+              }
+            }
+      }
+    03-profile-list: |
+      def createProfileList(parseUser, images):
+        def execute(spawner):
+          username = spawner.user.name
+          info2_teachers = ["salho"]
+          userdn = os.environ.get(username)
+          user = parseUser(userdn)
+          studentImages = {
+            'IMA18': ['info2_student'],
+            'AIM19': ['javascript_student']
+          }
+          teacherImages = {
+            'IMA': ['javascript_student',
+                    'javascript_teacher',
+                    'datascience_teacher',
+                    'golang_teacher'
+                   ]
+          }
+          logger.info('User info')
+          logger.info(user)
+          profiles = (teacherImages if user['type'] == 'Personal' else studentImages)[user['programme']]
+          logger.info('Profiles')
+          logger.info(profiles)
+          imgs = list(map(lambda p: images[p],profiles))
+          logger.info('User-Images')
+          logger.info(imgs)
+          return imgs
+        return execute
+      c.KubeSpawner.pre_spawn_hook = setConfig(parseUserDN)
+      c.KubeSpawner.storage_capacity = '100M'
+      c.KubeSpawner.start_timeout = 60 * 5
+      c.KubeSpawner.profile_list = createProfileList(parseUserDN, profiles)
+      c.KubeSpawner.cmd = ['/usr/local/bin/start.sh','jupyter','notebook']
+    04-volumes: |
+      c.KubeSpawner.volumes = [
+        {
+          'name': 'nbgrader',
+          'persistentVolumeClaim': {
+             'claimName': 'nbgradernew'
+           }
+        },
+        {
+          'name': 'users',
+          'persistentVolumeClaim': {
+             'claimName': 'claim-{username}'
+           }
+        }
+      ]
+      c.KubeSpawner.volume_mounts = [
+        {
+          'mountPath': '/tmp/exchange',
+          'name': 'nbgrader'
+        },
+        {
+          'mountPath': '/home/jovyan/work',
+          'name': 'users'
+        }
+      ]
+      c.KubeSpawner.http_timeout = 120
+      c.KubeSpawner.cmd = ["/usr/local/bin/start.sh"]
+      c.KubeSpawner.node_affinity_preferred = [
+        {
+          'weight': 50,
+          'preference': {
+            'matchExpressions': [
+                {
+                  'key': 'node-role.kubernetes.io/master',
+                  'operator': 'DoesNotExist',
+                  'values': []
+                }
+            ]
+          }
+        }
+      ]
+  extraConfigMap: {}

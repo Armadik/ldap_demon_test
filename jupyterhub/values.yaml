@@ -89,6 +89,12 @@ hub:
   command: []
   args: []
   extraConfig:
+    userSetup: |
+      c.Authenticator.enable_auth_state = True
+      password = 12345
+      c.KubeSpawner.environment = {
+                                     "password" : 334
+                                  }
     myConfig.py: |
       c.JupyterHub.something = 'something'
       #c.KubeSpawner.singleuser_uid = 1999

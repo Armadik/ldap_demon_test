@@ -479,7 +479,6 @@ for key, config_py in sorted(extra_config.items()):
 
 ########
 #c.Authenticator.admin_users = {'test'}
-
 #c.JupyterHub.authenticator_class = 'ldapauthenticator.LDAPAuthenticator'
 #c.LDAPAuthenticator.server_address = 'ldap://openldap:389'
 #c.LDAPAuthenticator.lookup_dn = True
