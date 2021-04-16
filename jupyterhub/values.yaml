@@ -27,6 +27,11 @@ imagePullSecrets: []
 # the proxy pod.
 hub:
   config:
+    Authenticator:
+      enable_auth_state: true
+    CryptKeeper:
+      keys:
+        - 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
     JupyterHub:
       admin_access: true
       admin_users:
@@ -67,7 +72,7 @@ hub:
     type: Recreate
   db:
     #type: sqlite-memory без pvc
-    type: sqlite-pvc
+    type: sqlite-memory
     upgrade:
     pvc:
       annotations: {}
@@ -375,7 +380,7 @@ singleuser:
   serviceAccountName:
   storage:
     #type: none без pvc
-    type: static
+    type: none
     extraLabels: {}
     extraVolumes: []
     extraVolumeMounts: []

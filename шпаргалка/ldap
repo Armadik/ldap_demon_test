@@ -1,0 +1,34 @@
+  extraConfig:
+    userSetup: |
+      c.LDAPAuthenticator.auth_state_attributes = ['uid', 'uidNumber', 'gidNumber']
+
+      from tornado import gen
+      from ldap3 import Server, Connection
+
+      @gen.coroutine
+      def lookup_GIDs(spawner):
+          server = Server('ldapx.ornl.gov', use_ssl=True)
+          with Connection(server, auto_bind=True) as conn:
+              conn.search('dc=ornl,dc=gov', f'(memberuid={spawner.user.name})', attributes=['gidNumber'])
+              return [gid for entry in conn.entries for gid in entry.entry_attributes_as_dict['gidNumber']]
+
+      @gen.coroutine
+      def get_uid(spawner):
+          auth_state = yield spawner.user.get_auth_state()
+          spawner.environment = {
+            "NB_UID": str(auth_state['uidNumber'][0]),
+            "NB_USER": auth_state['uid'][0],
+            "HOME": f'/home/{spawner.user.name}',
+          }
+          return auth_state['uidNumber'][0]
+
+      @gen.coroutine
+      def get_gid(spawner):
+          auth_state = yield spawner.user.get_auth_state()
+          return auth_state['gidNumber'][0]
+
+      c.KubeSpawner.uid = get_uid
+      c.KubeSpawner.gid = get_gid
+      c.KubeSpawner.fs_gid = get_gid
+      c.KubeSpawner.supplemental_gids = lookup_GIDs
+      c.KubeSpawner.notebook_dir = '~'
